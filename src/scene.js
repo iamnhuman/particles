@@ -8,6 +8,7 @@ import simulation from './shaders/simulation.glsl?raw';
 import vertexShader from './shaders/particles.vert.glsl?raw';
 import fragmentShader from './shaders/particles.frag.glsl?raw';
 import composite from './shaders/composite.glsl?raw';
+import { createChoreographyDriver } from './choreography.js';
 
 const TAU = Math.PI * 2;
 function randomGenerator(seed = 771) {
@@ -20,6 +21,8 @@ export class GrainScene {
     this.mobile = matchMedia('(max-width: 760px)').matches;
     this.size = this.mobile ? 192 : 320;
     this.particleCount = this.size ** 2;
+    this.choreography = createChoreographyDriver();
+    this.motionState = { dispersion: .025, style: 0, formation: .25 };
     this.pointer = new THREE.Vector3(0, 0, 0);
     this.smoothedPointer = new THREE.Vector3(0, 0, 0);
     this.renderer = new THREE.WebGLRenderer({ alpha: false, antialias: false, powerPreference: 'high-performance' });
@@ -82,12 +85,12 @@ export class GrainScene {
     }
     this.positionVariable = this.compute.addVariable('texturePosition', simulation, positionTexture);
     this.compute.setVariableDependencies(this.positionVariable, [this.positionVariable]);
-    this.simUniforms = { uOrigins: { value: originTexture }, uSpectrum: { value: this.spectrum }, uTime: { value: 0 }, uDelta: { value: 1 / 60 }, uBass: { value: 0 }, uMid: { value: 0 }, uHigh: { value: 0 }, uHit: { value: 0 }, uEnergy: { value: 0 }, uFlux: { value: 0 }, uActive: { value: 0 }, uPointer: { value: this.smoothedPointer } };
+    this.simUniforms = { uOrigins: { value: originTexture }, uSpectrum: { value: this.spectrum }, uTime: { value: 0 }, uDelta: { value: 1 / 60 }, uBass: { value: 0 }, uMid: { value: 0 }, uHigh: { value: 0 }, uHit: { value: 0 }, uEnergy: { value: 0 }, uFlux: { value: 0 }, uDispersion: { value: .025 }, uStyle: { value: 0 }, uFormation: { value: .25 }, uActive: { value: 0 }, uPointer: { value: this.smoothedPointer } };
     Object.assign(this.positionVariable.material.uniforms, this.simUniforms);
     const error = this.compute.init();
     if (error) throw new Error(error);
     this.originTexture = originTexture;
-    this.uniforms = { uPositions: { value: this.compute.getCurrentRenderTarget(this.positionVariable).texture }, uSpectrum: { value: this.spectrum }, uTime: { value: 0 }, uBass: { value: 0 }, uMid: { value: 0 }, uHigh: { value: 0 }, uHit: { value: 0 }, uActive: { value: 0 }, uCameraDistance: { value: 7.8 }, uParticleScale: { value: 1 }, uPixelRatio: { value: this.renderer.getPixelRatio() } };
+    this.uniforms = { uPositions: { value: this.compute.getCurrentRenderTarget(this.positionVariable).texture }, uSpectrum: { value: this.spectrum }, uTime: { value: 0 }, uBass: { value: 0 }, uMid: { value: 0 }, uHigh: { value: 0 }, uHit: { value: 0 }, uDispersion: { value: .025 }, uActive: { value: 0 }, uCameraDistance: { value: 7.8 }, uParticleScale: { value: 1 }, uPixelRatio: { value: this.renderer.getPixelRatio() } };
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     geometry.setAttribute('aReference', new THREE.BufferAttribute(refs, 2));
@@ -111,20 +114,20 @@ export class GrainScene {
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     geometry.setAttribute('aSeed', new THREE.BufferAttribute(seeds, 1));
-    this.dustUniforms = { uTime: { value: 0 }, uBass: { value: 0 }, uMid: { value: 0 }, uHigh: { value: 0 }, uHit: { value: 0 }, uEnergy: { value: 0 }, uCameraDistance: { value: 7.8 }, uPixelRatio: { value: this.renderer.getPixelRatio() } };
+    this.dustUniforms = { uTime: { value: 0 }, uBass: { value: 0 }, uMid: { value: 0 }, uHigh: { value: 0 }, uHit: { value: 0 }, uEnergy: { value: 0 }, uDispersion: { value: .025 }, uCameraDistance: { value: 7.8 }, uPixelRatio: { value: this.renderer.getPixelRatio() } };
     const material = new THREE.ShaderMaterial({
       uniforms: this.dustUniforms,
       vertexShader: `
         attribute float aSeed;
-        uniform float uTime,uBass,uMid,uHigh,uHit,uEnergy,uCameraDistance,uPixelRatio;
+        uniform float uTime,uBass,uMid,uHigh,uHit,uEnergy,uDispersion,uCameraDistance,uPixelRatio;
         varying float vAlpha;
         void main(){
           vec3 p=position;
-          float t=uTime*(.055+aSeed*.045)+uBass*.18;
+          float t=uTime*(.025+aSeed*.02)+uBass*(.02+uDispersion*.12);
           p.xz=mat2(cos(t),-sin(t),sin(t),cos(t))*p.xz;
           vec3 flow=vec3(sin(p.y*.7+uTime+aSeed*6.28),cos(p.z*.6-uTime*.8),sin(p.x*.5+uTime*.9));
-          p+=flow*(.15+uMid*.7+uHigh*.45);
-          p+=normalize(position)*(.35*uBass+.8*uHit)*(.5+aSeed*.5);
+          p+=flow*(.08+uMid*(.08+uDispersion*.5)+uHigh*(.05+uDispersion*.3));
+          p+=normalize(position)*(uBass*.06+uHit*(.05+uDispersion*.5))*(.5+aSeed*.5);
           vec4 mv=modelViewMatrix*vec4(p,1.);
           gl_Position=projectionMatrix*mv;
           gl_PointSize=(.7+aSeed*.9+uHit*.9)*uPixelRatio*(uCameraDistance/-mv.z);
@@ -152,9 +155,27 @@ export class GrainScene {
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
     geometry.setAttribute('aPhase', new THREE.Float32BufferAttribute(phases, 2));
-    this.lineUniforms = { uTime: { value: 0 }, uBass: { value: 0 }, uMid: { value: 0 }, uHit: { value: 0 } };
+    this.lineUniforms = { uTime: { value: 0 }, uBass: { value: 0 }, uMid: { value: 0 }, uHit: { value: 0 }, uDispersion: { value: .025 }, uFormation: { value: .25 } };
     const material = new THREE.ShaderMaterial({ uniforms: this.lineUniforms,
-      vertexShader: `attribute vec2 aPhase;uniform float uTime,uBass,uMid,uHit;varying float vAlpha;void main(){vec3 p=position;p+=normalize(p)*sin(aPhase.x*7.+uTime*1.2)*(.045+uMid*.22);p*=1.+uBass*.15+uHit*.12;p.z+=sin(aPhase.x*3.+uTime)*uMid*.22;gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.);vAlpha=(.025+.035*pow(.5+.5*sin(aPhase.x*2.+aPhase.y*6.28-uTime*.5),5.))*(1.+uHit*.7);}`,
+      vertexShader: `
+        attribute vec2 aPhase;
+        uniform float uTime,uBass,uMid,uHit,uDispersion,uFormation;
+        varying float vAlpha;
+        void main(){
+          float theta=aPhase.x+uTime*.12+uBass*.08;
+          float phi=aPhase.y*6.2831853+uTime*.23+theta*3.+sin(theta*3.+uTime*.13)*.3+uMid*.12;
+          float tube=(.42+.10*sin(theta*3.-uTime*.16))*(1.+uBass*.14);
+          float radius=1.67+tube*cos(phi)+sin(theta*2.+.6)*.12;
+          vec3 ring=vec3(radius*cos(theta),radius*sin(theta),tube*sin(phi)+sin(theta*3.+uTime*.16)*.22);
+          vec3 center=vec3(sin(theta)+2.*sin(2.*theta),cos(theta)-2.*cos(2.*theta),-sin(3.*theta))*.68;
+          vec3 tangent=normalize(vec3(cos(theta)+4.*cos(2.*theta),-sin(theta)+4.*sin(2.*theta),-3.*cos(3.*theta)));
+          vec3 normal=normalize(cross(tangent,vec3(0.,0.,1.)));
+          vec3 binormal=normalize(cross(tangent,normal));
+          vec3 knot=center+(normal*cos(phi)+binormal*sin(phi))*tube*.72;
+          vec3 p=mix(ring,knot,uFormation)*(1.+uBass*.035);
+          gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.);
+          vAlpha=(.025+.035*pow(.5+.5*sin(theta*2.+aPhase.y*6.28-uTime*.2),5.))*(1.+uHit*.25)*(1.-uDispersion*.9);
+        }`,
       fragmentShader: `varying float vAlpha;void main(){gl_FragColor=vec4(.85,.42,.19,vAlpha);}`,
       transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
     this.filaments = new THREE.LineSegments(geometry, material);
@@ -196,10 +217,12 @@ export class GrainScene {
   render({ time, features, spectrum, active, delta, zoom = 1 }) {
     const bass = features[1] * active, mid = features[2] * active, high = features[3] * active, hit = features[7] * active;
     const energy = features[0] * active, flux = features[4] * active;
+    this.motionState = this.choreography.sample({ time, features, active, delta });
+    const { dispersion, style, formation } = this.motionState;
     this.spectrumBytes.set(spectrum);
     this.spectrum.needsUpdate = true;
     this.smoothedPointer.lerp(this.pointer, 1 - Math.exp(-delta * 3));
-    const values = { uTime: time, uDelta: Math.min(delta, 1/30), uBass: bass, uMid: mid, uHigh: high, uHit: hit, uEnergy: energy, uFlux: flux, uActive: active };
+    const values = { uTime: time, uDelta: Math.min(delta, 1/30), uBass: bass, uMid: mid, uHigh: high, uHit: hit, uEnergy: energy, uFlux: flux, uDispersion: dispersion, uStyle: style, uFormation: formation, uActive: active };
     for (const [key, value] of Object.entries(values)) {
       if (this.simUniforms[key]) this.simUniforms[key].value = value;
       if (this.uniforms[key]) this.uniforms[key].value = value;
@@ -208,10 +231,11 @@ export class GrainScene {
     }
     this.compute.compute();
     this.uniforms.uPositions.value = this.compute.getCurrentRenderTarget(this.positionVariable).texture;
-    this.group.rotation.set(.52 + Math.sin(time * .18) * .2 + this.smoothedPointer.y * .018, -.35 + Math.sin(time * .14) * .24 + mid * .12 + this.smoothedPointer.x * .015, -.38 + time * .045 + bass * .06);
-    if (this.mobile) this.group.scale.setScalar(this.baseGroupScale / (1 + bass * .1 + hit * .1 + high * .07));
+    this.group.rotation.set(.52 + Math.sin(time * .10) * .16 + this.smoothedPointer.y * .018, -.35 + Math.sin(time * .08) * .2 + mid * .06 * dispersion + this.smoothedPointer.x * .015, -.38 + time * .028 + bass * .03 * dispersion);
+    // Give wider fields room while keeping the user's zoom independent.
+    this.group.scale.setScalar(this.baseGroupScale / (1 + dispersion * (this.mobile ? .95 : .65)));
     this.camera.position.set(this.group.position.x * (1 - 1/zoom), this.group.position.y * (1 - 1/zoom), this.baseCameraZ / zoom);
-    this.bloom.strength = .24 + high * .12 + hit * .1;
+    this.bloom.strength = .23 + high * .10 + hit * .08 + dispersion * .08;
     this.composite.uniforms.uTime.value = time;
     this.composite.uniforms.uHit.value = hit;
     this.composer.render();

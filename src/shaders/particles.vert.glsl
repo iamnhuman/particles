@@ -11,6 +11,7 @@ uniform float uActive;
 uniform float uPixelRatio;
 uniform float uCameraDistance;
 uniform float uParticleScale;
+uniform float uDispersion;
 varying vec3 vColor;
 varying float vAlpha;
 varying float vSpark;
@@ -20,9 +21,9 @@ void main() {
   vec3 p = data.xyz;
   float spectral = texture2D(uSpectrum, vec2(aSeed.x, .5)).r;
   vec3 outward = normalize(p + .0001);
-  p += outward * uHit * (.16 + .32 * aSeed.y);
-  p += sin(p.yzx * 5.0 + uTime * 3.0 + aSeed.z * 6.28) * uHigh * .1;
-  p += vec3(-outward.y,outward.x,sin(aSeed.x*6.28+uTime)) * uMid * .08;
+  p += outward * uHit * (.022 + .2 * uDispersion) * (.7 + .3 * aSeed.y);
+  p += sin(p.yzx * 5.0 + uTime * 2.0 + aSeed.z * 6.28) * uHigh * (.007 + .065 * uDispersion);
+  p += vec3(-outward.y,outward.x,sin(aSeed.x*6.28+uTime)) * uMid * (.008 + .06 * uDispersion);
   vec4 viewPosition = modelViewMatrix * vec4(p, 1.0);
   gl_Position = projectionMatrix * viewPosition;
   float warmLight = smoothstep(-1.7, 1.6, p.x + p.y * .45 + p.z * .5);
@@ -37,8 +38,10 @@ void main() {
   vColor = mix(vColor, vec3(1.4, 1.2, .9), vSpark * .75);
   float size = 1.05 + pow(aSeed.y, 5.0) * 1.65;
   size += vSpark * (1.0 + uHit * 4.0);
+  size *= mix(1.0,.88,uDispersion);
   gl_PointSize = clamp(size * uPixelRatio * max(.65,uParticleScale) * (uCameraDistance / -viewPosition.z), .7, 13.0);
   vAlpha = (.5 + aSeed.z * .45) * (1.0-smoothstep(uCameraDistance+3.0, uCameraDistance+10.0, -viewPosition.z));
   vAlpha *= .82 + spectral * uActive * .3 + uHit * .2;
   vAlpha *= min(1.0,uParticleScale*uParticleScale);
+  vAlpha *= mix(1.0,.67,uDispersion);
 }

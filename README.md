@@ -47,6 +47,8 @@ Here “grains” means overlapping windows of the waveform. An MP3 does not con
 
 ## Graphics
 
+Motion alternates between clean gathered filaments and four flowing releases: radial bloom, orbital vortex, separated ribbons and orbiting clusters. Longer held poses preserve the original sculpture; unequal visual phrases and actual spectral energy shape the releases and smooth recall. Idle stays mostly gathered. Run `node scripts/choreography-check.mjs` for the browser-free check, including the supplied MP3.
+
 Three.js renders 102,400 simulated particles on desktop, with 14,000 ambient particles and 22 fine filament paths. Initial mobile loads use 36,864 simulated and 3,500 ambient particles. GPGPU position textures use ping-pong render targets, a divergence-free analytic curl field, spectral displacement and sound-driven morphing from a torus into a trefoil structure. Global pressure, flow and radial deformation make the whole cloud respond to the track, with faster motion between passages and before playback. Custom point sprites, bloom, tone mapping, subtle chromatic aberration and film grain complete the scene. SVG contours, heading trace and waveform use the current audio response. One GSAP ticker drives rendering.
 
 Self-hosted Manrope font; no runtime CDNs or third-party network requests. The original root MP3 remains untouched; the served copy is `public/audio/track.mp3`.

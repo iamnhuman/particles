@@ -226,7 +226,7 @@ try {
     return { stopped, resumed: (await state()).time, expectedCount };
   });
 
-  await check('Real track features move more than 75% of GPU particles', async () => {
+  await check('Real track features release more than 75% of GPU particles from a gathered pose', async () => {
     if (!await page.evaluate(() => window.__grain.motion)) await page.locator('#motion').click();
     await page.locator('#seek').fill('18.5');
     await page.locator('#play').click();
@@ -255,10 +255,11 @@ try {
       scene.composer.render = () => {};
       let zero, music;
       try {
-        const common = { time: 12, active: 1, delta: 1 / 60, zoom: 1 };
-        for (let i = 0; i < 30; i++) scene.render({ ...common, features: new Float32Array(8), spectrum: new Uint8Array(64) });
+        // Compare inside a release phrase. Held phrases deliberately stay graceful.
+        const common = { time: 15.128, active: 1, delta: 1 / 60, zoom: 1 };
+        for (let i = 0; i < 120; i++) scene.render({ ...common, features: new Float32Array(8), spectrum: new Uint8Array(64) });
         zero = readPositions();
-        for (let i = 0; i < 30; i++) scene.render({ ...common, features, spectrum });
+        for (let i = 0; i < 120; i++) scene.render({ ...common, features, spectrum });
         music = readPositions();
       } finally {
         scene.composer.render = renderComposer;
@@ -277,7 +278,7 @@ try {
       }
       distances.sort((a, b) => a - b);
       return {
-        time: frame.time, fixedSimulationTime: 12, settleFramesPerInput: 30,
+        time: frame.time, fixedSimulationTime: 15.128, settleFramesPerInput: 120,
         features: Array.from(features), spectrumMax: Math.max(...spectrum),
         count: scene.particleCount, moved, fraction: moved / scene.particleCount,
         threshold: .12, finite, mean: sum / scene.particleCount,
