@@ -181,6 +181,21 @@ export class GrainScene {
     this.filaments = new THREE.LineSegments(geometry, material);
     this.group.add(this.filaments);
   }
+  randomize() {
+    this.choreography.randomize();
+    // Reassign each grain's strand and escape lane without replacing GPU
+    // resources. The simulation eases the current positions into these seeds.
+    const random = randomGenerator(Math.floor(Math.random() * 4294967296));
+    const origins = this.originTexture.image.data;
+    const turn = random() * TAU;
+    for (let i = 0; i < origins.length; i += 4) {
+      origins[i] = (origins[i] + turn) % TAU;
+      origins[i + 1] = Math.floor(random() * 160) / 160 * TAU + (random() - .5) * .022;
+      origins[i + 2] = .91 + random() * .12;
+      origins[i + 3] = random();
+    }
+    this.originTexture.needsUpdate = true;
+  }
   resize() {
     const w = this.container.clientWidth, h = this.container.clientHeight;
     this.mobile = w <= 760;

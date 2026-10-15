@@ -38,6 +38,7 @@ function updateMotion() {
   $('motion-label').textContent = motion ? 'Motion on' : 'Motion off';
   if (motion) initScene();
   updateParticleCount();
+  $('randomize').disabled = !motion || !scene;
 }
 
 function updateParticleCount() {
@@ -53,6 +54,7 @@ async function initScene() {
     try {
       scene = new GrainScene($('scene'));
       updateParticleCount();
+      $('randomize').disabled = !motion;
       document.documentElement.classList.remove('no-webgl');
     } catch (error) {
       document.documentElement.classList.add('no-webgl');
@@ -136,6 +138,11 @@ function updateMuteUI() {
 }
 $('mute').addEventListener('click', () => { audio.muted = !audio.muted; audio.updateGain(); updateMuteUI(); });
 $('motion').addEventListener('click', () => { motion = !motion; updateMotion(); });
+$('randomize').addEventListener('click', () => {
+  if (!scene || !motion) return;
+  scene.randomize();
+  if (!reducedMotion.matches) gsap.fromTo($('randomize').querySelector('svg'), { rotation: -180 }, { rotation: 0, duration: .65, ease: 'power3.out', overwrite: true });
+});
 $('fullscreen').addEventListener('click', async () => {
   try {
     if (document.fullscreenElement) await document.exitFullscreen();

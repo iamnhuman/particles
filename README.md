@@ -34,6 +34,8 @@ At the user's request, scene motion starts enabled even when the system prefers 
 
 Scene zoom smoothly ranges from 60% to 240%. Use the visible minus / percentage reset / plus controls, the mouse wheel, two-finger pinch, or the **− / + / 0** keys.
 
+**Randomize particles** reshuffles the grains, gathered silhouette and release sequence with a smooth reveal and recall. It works before Play and during playback, preserving the track position, zoom and particle count. The button is disabled while Motion is off or WebGL is unavailable.
+
 ## Audio synchronization
 
 - Meyda analyzes overlapping 1,024-sample Hann windows with 256-sample hops in a module worker.

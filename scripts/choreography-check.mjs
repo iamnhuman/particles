@@ -78,6 +78,62 @@ for (const args of [{}, { time: NaN, delta: NaN, active: NaN, features: [Infinit
 invalid.reset();
 assert.deepEqual(invalid.sample({ delta: 0 }), { dispersion: .025, style: 0, formation: .25 }, 'Reset must restore the initial sculpture');
 
+// The button previews a new sculpture even while audio is waiting for Play.
+// A seeded source makes its timing and smoothness checks reproducible.
+let randomSeed = 91;
+const random = () => {
+  randomSeed = (Math.imul(randomSeed, 1664525) + 1013904223) >>> 0;
+  return randomSeed / 2 ** 32;
+};
+const shuffled = createChoreographyDriver({ random });
+const initial = { ...shuffled.sample({ time: 8, active: 0, delta: 0 }) };
+shuffled.randomize();
+assert.deepEqual(shuffled.sample({ time: 8, active: 0, delta: 0 }), initial, 'A click must not jump the visible pose or change the caller clock');
+const preview = [];
+for (let index = 1; index <= 8 * 60; index++) {
+  preview.push({ ...shuffled.sample({ time: 8 + index / 60, active: 0, delta: 1 / 60 }) });
+}
+assert(Math.max(...preview.map((frame) => frame.dispersion)) > .65, 'Randomize must visibly release particles before audio Play');
+assert(preview.at(-1).dispersion < .12, 'The manual preview must recall into a coherent idle sculpture');
+assert(Math.abs(preview.at(-1).formation - initial.formation) > .4, 'Randomize must find a visibly different assembled form');
+assert(Math.abs(preview.at(-1).style - initial.style) > .8, 'Randomize must choose a different escape field');
+for (let index = 1; index < preview.length; index++) {
+  valid(preview[index]);
+  assert(Math.abs(preview[index].dispersion - preview[index - 1].dispersion) < .025, 'Preview release and recall must stay continuous');
+  assert(Math.abs(preview[index].style - preview[index - 1].style) < .06, 'Randomized field changes must ease smoothly');
+  assert(Math.abs(preview[index].formation - preview[index - 1].formation) < .02, 'Randomized shapes must ease smoothly');
+}
+for (let index = 0; index < 600; index++) {
+  shuffled.randomize();
+  valid(shuffled.sample({ time: 16 + index / 120, active: index % 2, features: constantMusic, delta: 1 / 120 }));
+}
+shuffled.reset();
+assert.deepEqual(shuffled.sample({ delta: 0 }), { dispersion: .025, style: 0, formation: .25 }, 'Reset must also clear randomized phrases and manual previews');
+const defaultDriver = createChoreographyDriver();
+for (let index = 0; index < 600; index++) {
+  const input = { time: index / 60, features: constantMusic, active: 1, delta: 1 / 60 };
+  assert.deepEqual(shuffled.sample(input), defaultDriver.sample(input), 'Reset must restore the default phrase sequence');
+}
+const randomizedMusic = createChoreographyDriver({ random: () => .3 });
+const randomizedSilence = createChoreographyDriver({ random: () => .3 });
+randomizedMusic.randomize();
+randomizedSilence.randomize();
+const followingMusic = [];
+const followingSilence = [];
+for (let index = 0; index < 126 * 60; index++) {
+  const input = { time: index / 60, active: 1, delta: 1 / 60 };
+  const music = randomizedMusic.sample({ ...input, features: constantMusic });
+  const silence = randomizedSilence.sample({ ...input, features: [] });
+  if (index > 8 * 60) {
+    followingMusic.push({ ...music });
+    followingSilence.push({ ...silence });
+  }
+}
+assert(Math.max(...followingMusic.map((frame) => frame.style)) - Math.min(...followingMusic.map((frame) => frame.style)) > 2.8, 'Randomized music phrases must still visit all four escape fields');
+assert(longestRun(followingMusic, (frame) => frame.dispersion < .1) > 3, 'Randomized phrases must retain long assembled holds');
+assert(occupancy(followingMusic).dispersed > .2, 'Music must continue driving full releases after a randomize preview');
+assert(followingSilence.every((frame) => frame.dispersion < .12), 'A completed preview must return control of release energy to the audio');
+
 // Exercise this project's real audio without opening a browser. ffmpeg only
 // decodes PCM for this verification; it is not a runtime app dependency.
 const sampleRate = 44100;
@@ -125,4 +181,4 @@ assert(real.structured > .18, `Real track must have sustained assembled passages
 assert(real.dispersed > .16, `Real track must have full releases: ${real.dispersed}`);
 assert(longestRun(realFrames, (f) => f.dispersion < .1) > 2, 'Real track must allow the assembled sculpture to settle');
 assert(Math.max(...realFrames.map((f) => f.style)) - Math.min(...realFrames.map((f) => f.style)) > 2.6, 'Real track must use diverse escape styles');
-console.log(JSON.stringify({ passed: true, synthetic, realTrack: { seconds: samples.length / sampleRate, ...real }, checks: ['held forms', 'flowing releases', 'four styles', 'changing silhouettes', 'smooth transitions', 'audio-dependent strength', 'idle and silence', '30/60/120 FPS', 'invalid input and reset', 'real MP3 envelopes'] }, null, 2));
+console.log(JSON.stringify({ passed: true, synthetic, realTrack: { seconds: samples.length / sampleRate, ...real }, checks: ['held forms', 'flowing releases', 'four styles', 'changing silhouettes', 'smooth transitions', 'audio-dependent strength', 'idle and silence', '30/60/120 FPS', 'invalid input and reset', 'randomize before Play', 'smooth preview and recall', 'rapid randomize and reset', 'real MP3 envelopes'] }, null, 2));
