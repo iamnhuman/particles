@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#090a0b" />
+    <title>GRAIN — Sound made matter</title>
+    <meta name="description" content="An immersive audio experiment. A single track becomes a living sculpture of particles. Press play and watch sound take shape." />
+    <meta property="og:title" content="GRAIN / Sound made matter" />
+    <meta property="og:description" content="A single track. Thousands of particles. Every sound, a new shape." />
+    <link rel="icon" type="image/svg+xml" href="/particles/favicon.svg" />
+    <script type="module" crossorigin src="/particles/assets/index-DpBLGAVG.js"></script>
+    <link rel="stylesheet" crossorigin href="/particles/assets/index-BP7lIjcJ.css">
+  </head>
+  <body>
+    <a class="skip-link" href="#play">Skip to playback</a>
+    <main id="experience" class="experience" aria-label="GRAIN audio visualizer">
+      <div id="scene" class="scene" aria-hidden="true"></div>
+      <svg class="orbital-svg" viewBox="0 0 1000 1000" fill="none" aria-hidden="true"><g id="orbit-group"><path class="orbit-trace"/><path class="orbit-trace"/><path class="orbit-trace"/></g><path class="orbit-cross" d="M500 69v14m-7-7h14M925 500h-14m7-7v14M500 931v-14m-7 7h14M75 500h14m-7-7v14"/></svg>
+      <div class="scene-scrim" aria-hidden="true"></div>
+      <svg class="fallback-art" viewBox="0 0 800 800" fill="none" aria-hidden="true">
+        <defs><radialGradient id="fallback-color"><stop stop-color="#f7bf82"/><stop offset="1" stop-color="#6c2b1c"/></radialGradient></defs>
+        <g stroke="url(#fallback-color)" stroke-width="1" opacity=".6" transform="rotate(-28 400 400)">
+          <ellipse cx="400" cy="400" rx="290" ry="200"/><ellipse cx="400" cy="400" rx="280" ry="180"/><ellipse cx="400" cy="400" rx="270" ry="160"/><ellipse cx="400" cy="400" rx="260" ry="140"/><ellipse cx="400" cy="400" rx="250" ry="120"/><ellipse cx="400" cy="400" rx="240" ry="100"/><ellipse cx="400" cy="400" rx="230" ry="80"/>
+        </g>
+      </svg>
+
+      <header class="header">
+        <a class="wordmark" href="/particles/" aria-label="GRAIN home">
+          <svg viewBox="0 0 32 32" class="grain-mark" aria-hidden="true"><path d="M16 1v30M1 16h30M5.4 5.4l21.2 21.2M5.4 26.6L26.6 5.4"/></svg>
+          <span>grain<span class="wordmark-dot">.</span></span>
+        </a>
+        <p class="header-caption">An exploration of<br/>sound &amp; form.</p>
+        <div class="header-actions">
+          <button id="about-open" class="text-button" type="button" aria-label="About the experiment"><span><span class="about-full">About the experiment</span><span class="about-short" aria-hidden="true">About</span></span><span class="plus">+</span></button>
+          <button id="fullscreen" class="icon-button" type="button" aria-label="Enter fullscreen" title="Fullscreen">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4H4v4m12-4h4v4M4 16v4h4m8 0h4v-4"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <div class="art-axis" aria-hidden="true"><span>FORM / FREQUENCY</span><span id="energy-readout">0.000</span></div>
+
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="eyebrow"><span class="eyebrow-line"></span>Sound made matter</div>
+        <h1 id="hero-title">Every sound.<br/>A new <span class="shape-word">shape<svg viewBox="0 0 300 16" preserveAspectRatio="none" aria-hidden="true"><path id="title-wave" d="M0 8 Q15 8 30 8 T60 8 T90 8 T120 8 T150 8 T180 8 T210 8 T240 8 T270 8 T300 8"/></svg></span>.</h1>
+        <p class="hero-description"><span id="particle-count" aria-live="polite">0</span> particles active.<br/> One track pulling every thread.</p>
+        <button id="play" class="play-button" type="button" aria-label="Play experience">
+          <span class="play-disc"><svg viewBox="0 0 24 24" aria-hidden="true"><path id="play-symbol" d="m9 5 10 7-10 7Z"/></svg><svg class="disc-orbit" viewBox="0 0 80 80" aria-hidden="true"><circle cx="40" cy="40" r="38"/></svg></span>
+          <span class="play-copy"><span id="play-label">Play experience</span><span class="play-hint" id="play-hint">Preparing the sound…</span></span>
+          <span class="play-arrow" aria-hidden="true">↗</span>
+        </button>
+      </section>
+
+      <div class="art-note"><span class="note-index">01<span>/</span>01</span><div><span class="note-title">Original signal</span><span class="note-subtitle">Let the sound find its form.</span></div></div>
+
+      <footer class="transport" aria-label="Track controls">
+        <div class="transport-top">
+          <div class="track-label"><span class="track-dot"></span><span id="transport-status">Ready when you are</span></div>
+          <div class="time"><span id="current-time">00:00</span><span class="time-slash">/</span><span id="duration">00:38</span></div>
+        </div>
+        <div class="transport-main">
+          <button id="transport-play" class="transport-play icon-button" type="button" aria-label="Play track"><svg viewBox="0 0 24 24" aria-hidden="true"><path id="transport-symbol" d="m9 5 10 7-10 7Z"/></svg></button>
+          <div class="waveform-container">
+            <svg id="waveform" viewBox="0 0 1000 40" preserveAspectRatio="none" aria-hidden="true"><defs><clipPath id="waveform-progress"><rect id="progress-clip" x="0" y="0" width="0" height="40"/></clipPath></defs><path id="waveform-base"/><path id="waveform-played" clip-path="url(#waveform-progress)"/><line id="playhead" x1="0" y1="0" x2="0" y2="40"/></svg>
+            <input id="seek" type="range" min="0" max="38" step="0.01" value="0" aria-label="Track position" aria-valuetext="0 seconds" />
+          </div>
+          <div class="volume-control"><button id="mute" class="icon-button" type="button" aria-label="Mute sound"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4Z"/><path id="sound-waves" d="M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/></svg></button><input id="volume" type="range" min="0" max="1" step="0.01" value="0.8" aria-label="Volume"/></div>
+        </div>
+        <div class="transport-bottom"><span class="headphones-hint">Headphones recommended</span><span class="keyboard-hint"><kbd>space</kbd> to play or pause</span><div class="zoom-controls" role="group" aria-label="Scene zoom"><button id="zoom-out" type="button" aria-label="Zoom out">−</button><button id="zoom-reset" type="button" aria-label="Reset zoom"><span id="zoom-value">100%</span></button><button id="zoom-in" type="button" aria-label="Zoom in">+</button></div><button id="motion" class="motion-button" type="button" aria-pressed="true"><span class="motion-indicator"></span><span id="motion-label">Motion on</span></button></div>
+      </footer>
+      <div id="notice" class="notice" role="status" aria-live="polite"></div>
+    </main>
+
+    <dialog id="about" aria-labelledby="about-title">
+      <button id="about-close" class="icon-button dialog-close" type="button" aria-label="Close about"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button>
+      <span class="eyebrow">Behind the form</span>
+      <h2 id="about-title">A little closer<br/>to the sound.</h2>
+      <p>GRAIN turns a single track into a living particle sculpture. Low frequencies push the form outward. Midrange bends its filaments. High frequencies scatter its light.</p>
+      <p>The music is examined in overlapping windows of 1,024 samples. Every attack leaves its own trace, all moving to the same audio clock.</p>
+      <div class="about-credit"><span>Built with Three.js &amp; Meyda</span><span>Sound → matter</span></div>
+    </dialog>
+  </body>
+</html>
