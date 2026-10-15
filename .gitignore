@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.shots/
+test-results/
+playwright-report/
+.DS_Store
+/*.mp3
+.env
+.env.*
+!.env.example
