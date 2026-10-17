@@ -12,18 +12,21 @@ uniform float uPixelRatio;
 uniform float uCameraDistance;
 uniform float uParticleScale;
 uniform float uDispersion;
+uniform float uToyota;
+uniform sampler2D uToyotaGrains;
+uniform float uToyotaFlowTime;
 varying vec3 vColor;
 varying float vAlpha;
-varying float vSpark;
 
 void main() {
   vec4 data = texture2D(uPositions, aReference);
   vec3 p = data.xyz;
   float spectral = texture2D(uSpectrum, vec2(aSeed.x, .5)).r;
   vec3 outward = normalize(p + .0001);
-  p += outward * uHit * (.022 + .2 * uDispersion) * (.7 + .3 * aSeed.y);
-  p += sin(p.yzx * 5.0 + uTime * 2.0 + aSeed.z * 6.28) * uHigh * (.007 + .065 * uDispersion);
-  p += vec3(-outward.y,outward.x,sin(aSeed.x*6.28+uTime)) * uMid * (.008 + .06 * uDispersion);
+  float detail = 1.0-uToyota;
+  p += outward * uHit * (.022 + .2 * uDispersion) * (.7 + .3 * aSeed.y) * detail;
+  p += sin(p.yzx * 5.0 + uTime * 2.0 + aSeed.z * 6.28) * uHigh * (.007 + .065 * uDispersion) * detail;
+  p += vec3(-outward.y,outward.x,sin(aSeed.x*6.28+uTime)) * uMid * (.008 + .06 * uDispersion) * detail;
   vec4 viewPosition = modelViewMatrix * vec4(p, 1.0);
   gl_Position = projectionMatrix * viewPosition;
   float warmLight = smoothstep(-1.7, 1.6, p.x + p.y * .45 + p.z * .5);
@@ -34,12 +37,13 @@ void main() {
   vColor = mix(vColor, light, pow(warmLight, 3.0) * .8);
   float filaments = .5 + .5 * sin(aSeed.z * 40.0 + p.y * 4.0);
   vColor *= .7 + filaments * .65 + spectral * uActive * .42;
-  vSpark = step(.997, aSeed.y);
-  vColor = mix(vColor, vec3(1.4, 1.2, .9), vSpark * .75);
+  if (uToyota > 0.0) {
+    vec3 material = texture2D(uToyotaGrains,aReference).xyz;
+    vColor *= mix(1.0,toyotaSheen(material,uToyotaFlowTime),uToyota);
+  }
   float size = 1.05 + pow(aSeed.y, 5.0) * 1.65;
-  size += vSpark * (1.0 + uHit * 4.0);
   size *= mix(1.0,.88,uDispersion);
-  gl_PointSize = clamp(size * uPixelRatio * max(.65,uParticleScale) * (uCameraDistance / -viewPosition.z), .7, 13.0);
+  gl_PointSize = clamp(size * uPixelRatio * max(.65,uParticleScale) * (uCameraDistance / -viewPosition.z), .7, 3.0*uPixelRatio);
   vAlpha = (.5 + aSeed.z * .45) * (1.0-smoothstep(uCameraDistance+3.0, uCameraDistance+10.0, -viewPosition.z));
   vAlpha *= .82 + spectral * uActive * .3 + uHit * .2;
   vAlpha *= min(1.0,uParticleScale*uParticleScale);

@@ -256,7 +256,7 @@ try {
       let zero, music;
       try {
         // Compare inside a release phrase. Held phrases deliberately stay graceful.
-        const common = { time: 15.128, active: 1, delta: 1 / 60, zoom: 1 };
+        const common = { time: 24.3, active: 1, delta: 1 / 60, zoom: 1 };
         for (let i = 0; i < 120; i++) scene.render({ ...common, features: new Float32Array(8), spectrum: new Uint8Array(64) });
         zero = readPositions();
         for (let i = 0; i < 120; i++) scene.render({ ...common, features, spectrum });
@@ -278,7 +278,7 @@ try {
       }
       distances.sort((a, b) => a - b);
       return {
-        time: frame.time, fixedSimulationTime: 15.128, settleFramesPerInput: 120,
+        time: frame.time, fixedSimulationTime: 24.3, settleFramesPerInput: 120,
         features: Array.from(features), spectrumMax: Math.max(...spectrum),
         count: scene.particleCount, moved, fraction: moved / scene.particleCount,
         threshold: .12, finite, mean: sum / scene.particleCount,

@@ -122,7 +122,12 @@ audio.addEventListener('progress', (e) => {
   if (!audio.analysis) $('play-hint').textContent = `Listening to the details · ${Math.floor(e.detail * 100)}%`;
 });
 for (const event of ['play', 'pause', 'ended', 'seek']) audio.addEventListener(event, setPlaybackUI);
-audio.addEventListener('play', () => { audioPhase = visualTime - audio.position(true); response.reset(); });
+audio.addEventListener('play', () => {
+  const position = audio.position(true);
+  audioPhase = visualTime-position;
+  if (position < .1) scene?.spatialMotion.reset();
+  response.reset();
+});
 $('play').addEventListener('click', togglePlayback);
 $('transport-play').addEventListener('click', togglePlayback);
 $('seek').addEventListener('input', (e) => {
@@ -133,10 +138,16 @@ function seekTrack(time) { response.reset(); audio.seek(time); updateTransport(a
 $('volume').addEventListener('input', (e) => { audio.muted = false; audio.setVolume(Number(e.target.value)); updateMuteUI(); });
 function updateMuteUI() {
   const muted = audio.muted || audio.volume === 0;
+  const volume = $('volume');
+  volume.style.setProperty('--volume-level', `${audio.volume * 100}%`);
+  volume.setAttribute('aria-valuetext', `${Math.round(audio.volume * 100)}%`);
+  volume.parentElement.dataset.muted = String(muted);
   $('mute').setAttribute('aria-label', muted ? 'Unmute sound' : 'Mute sound');
+  $('mute').setAttribute('aria-pressed', String(muted));
   $('sound-waves').setAttribute('d', muted ? 'm15 9 6 6m-6 0 6-6' : 'M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14');
 }
 $('mute').addEventListener('click', () => { audio.muted = !audio.muted; audio.updateGain(); updateMuteUI(); });
+updateMuteUI();
 $('motion').addEventListener('click', () => { motion = !motion; updateMotion(); });
 $('randomize').addEventListener('click', () => {
   if (!scene || !motion) return;
@@ -167,7 +178,10 @@ document.addEventListener('keydown', (e) => {
 });
 
 function updateTransport(time) {
-  const progress = audio.duration ? time / audio.duration * 1000 : 0;
+  const fraction = audio.duration ? Math.max(0, Math.min(1, time / audio.duration)) : 0;
+  const progress = fraction * 1000;
+  $('play-progress').setAttribute('stroke-dashoffset', String((1 - fraction) * 100));
+  $('play-progress').setAttribute('visibility', fraction > 0 ? 'visible' : 'hidden');
   $('current-time').textContent = formatTime(time);
   if (document.activeElement !== $('seek')) $('seek').value = String(time);
   $('seek').setAttribute('aria-valuetext', `${Math.floor(time)} of ${Math.round(audio.duration || 38)} seconds`);
@@ -206,7 +220,7 @@ function tick(_time, deltaMs) {
   const zoomValue = zoom.update(delta);
   if (audio.playing) visualTime = audioPhase + frame.time;
   else if (motion) visualTime += delta;
-  if (scene && motion) scene.render({ ...frame, features: reactive, time: visualTime, active: state.active, delta, zoom: zoomValue });
+  if (scene && motion) scene.render({ ...frame, playbackTime: frame.time, duration: audio.duration, features: reactive, time: visualTime, active: state.active, delta, zoom: zoomValue });
   if (performance.now() - previousUI > 32) {
     updateTransport(frame.time);
     updateParticleCount();

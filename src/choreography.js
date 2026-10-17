@@ -1,128 +1,144 @@
 const clamp = (value, maximum = 1) => Math.min(maximum, Math.max(0, Number.isFinite(value) ? value : 0));
-const smoothstep = (start, end, value) => {
-  const x = clamp((value - start) / (end - start));
-  return x * x * (3 - 2 * x);
-};
-const mix = (from, to, amount) => from + (to - from) * amount;
+const smoothstep = (a, b, value) => { const t = clamp((value - a) / (b - a)); return t * t * (3 - 2 * t); };
+const smootherstep = value => { const t = clamp(value); return clamp(t * t * t * (t * (t * 6 - 15) + 10)); };
+const mix = (a, b, t) => a + (b - a) * t;
 
-// These are long visual phrases, not a beat/BPM estimate. Unequal durations
-// give the sculpture time to hold, open, drift, and find another silhouette.
-const PHRASES = [9.2, 11.4, 8.6, 12.8];
+export const FORM_IDS = Array.from({ length: 13 }, (_, id) => id);
+export const DEFAULT_SEQUENCE = [0, 1, 8, 9, 2, 10, 3, 11, 4, 12, 5, 6, 7];
+const PHRASES = [9.2, 11.4, 6.4, 8.6, 12.8, 9.2, 11.4, 8.6, 12.8, 9.2, 11.4, 8.6, 12.8];
 const FORMS = [0, .88, .3, 1];
-const RELEASES = [1, .94, .98, .91];
-const PERIOD = PHRASES.reduce((sum, duration) => sum + duration, 0);
-const REVEAL_DURATION = 4.8;
+const RELEASES = [1, .94, .96, .98, .91, .96, 1, .93, .98];
+export const CYCLE_DURATION = PHRASES.reduce((sum, value) => sum + value, 0);
+export const MORPH_DURATION = 2.2;
+export const TOYOTA_MORPH_DURATION = .9;
+export const TOYOTA_HOLD_DURATION = .65;
+const PREVIEW_DURATION = 6.4;
+const morphDurationFor = (from, to) => from === 8 || to === 8 ? TOYOTA_MORPH_DURATION : MORPH_DURATION;
+
+export function formWeight(state, id) {
+  return (state.fromStyle === id ? 1 - state.morph : 0) + (state.toStyle === id ? state.morph : 0);
+}
 
 export function createChoreographyDriver({ random = Math.random } = {}) {
-  const output = { dispersion: .025, style: 0, formation: .25 };
-  let dispersion = output.dispersion;
-  let lastTime = 0;
-  let clockOffset = 0;
-  let styles = [0, 1, 2, 3];
-  let forms = [...FORMS];
-  let randomized = false;
-  let revealAge = REVEAL_DURATION;
-  let revealStart = dispersion;
-  const pick = (values) => values[Math.min(values.length - 1, Math.floor(clamp(random()) * values.length))];
+  const output = { dispersion: .025, style: 0, formation: .25, fromStyle: 0, toStyle: 0, morph: 1, toyota: 0 };
+  let dispersion = output.dispersion, lastTime = 0, clockOffset = 0;
+  let styles = [...DEFAULT_SEQUENCE], forms = [...FORMS];
+  let randomized = false, started = false, previewAge = PREVIEW_DURATION, previewStart = dispersion;
+  let previewStarted = false;
+  let morphAge = MORPH_DURATION, morphDuration = MORPH_DURATION, selected = 0;
+  const pick = values => values[Math.min(values.length - 1, Math.floor(clamp(random()) * values.length))];
   const reorder = (values, first) => {
-    const remaining = values.filter((value) => value !== first);
-    for (let index = remaining.length - 1; index > 0; index--) {
-      const swap = Math.min(index, Math.floor(clamp(random()) * (index + 1)));
-      [remaining[index], remaining[swap]] = [remaining[swap], remaining[index]];
+    const rest = values.filter(value => value !== first);
+    for (let index = rest.length - 1; index > 0; index--) {
+      const other = Math.min(index, Math.floor(clamp(random()) * (index + 1)));
+      [rest[index], rest[other]] = [rest[other], rest[index]];
     }
-    return [first, ...remaining];
+    return [first, ...rest];
   };
 
   return {
-    sample({ time, features, active = 0, delta = 1 / 60 } = {}) {
+    sample(args = {}) {
+      const { time, features, active = 0, delta = 1 / 60 } = args;
       const clock = Number.isFinite(time) ? Math.max(0, time) : lastTime;
-      lastTime = clock;
       const dt = Number.isFinite(delta) ? Math.min(.25, Math.max(0, delta)) : 1 / 60;
-      const enabled = clamp(active);
-      const rms = clamp(features?.[0]);
-      const bass = clamp(features?.[1]);
-      const mid = clamp(features?.[2]);
-      const high = clamp(features?.[3]);
-      const flux = clamp(features?.[4]);
-      const centroid = clamp(features?.[5]);
-      const flatness = clamp(features?.[6]);
-      const hit = clamp(features?.[7]);
-
-      const revealing = revealAge < REVEAL_DURATION;
-      if (revealing) {
-        revealAge = Math.min(REVEAL_DURATION, revealAge + dt);
-        // Start a fresh held phrase after the preview. Only the visual phrase
-        // is offset: the caller's clock and the audio transport keep running.
-        if (revealAge === REVEAL_DURATION) clockOffset = PHRASES[0] * .08 - clock;
+      if (dt > 1 / 120 + 1e-9) {
+        const steps = Math.ceil(dt * 120 - 1e-9);
+        for (let step = 1; step <= steps; step++) this.sample({
+          time: Math.max(0, clock - dt + dt * step / steps), features, active, delta: dt / steps
+        });
+        return output;
       }
-      let position = ((clock + clockOffset) % PERIOD + PERIOD) % PERIOD;
+      lastTime = clock;
+      const enabled = clamp(active), rms = clamp(features?.[0]);
+      const bass = clamp(features?.[1]), mid = clamp(features?.[2]), high = clamp(features?.[3]);
+      const flux = clamp(features?.[4]), hit = clamp(features?.[7]);
+      const preview = previewAge < PREVIEW_DURATION;
+      if (preview && previewStarted && dt > 0) {
+        previewAge = Math.min(PREVIEW_DURATION, previewAge + dt);
+        // A logo preview has already handed off to the next form. Resume there
+        // instead of entering the logo's automatic passage a second time.
+        if (previewAge === PREVIEW_DURATION) clockOffset = (styles[0] === 8
+          ? PHRASES[0] + PHRASES[1] * .08 : PHRASES[0] * .08) - clock;
+      }
+      let position = ((clock + clockOffset) % CYCLE_DURATION + CYCLE_DURATION) % CYCLE_DURATION;
       let phrase = 0;
-      while (phrase < PHRASES.length - 1 && position >= PHRASES[phrase]) {
-        position -= PHRASES[phrase++];
+      while (phrase < PHRASES.length - 1 && position >= PHRASES[phrase]) position -= PHRASES[phrase++];
+      const phase = position / PHRASES[phrase], next = (phrase + 1) % styles.length;
+      let requested;
+      if (preview) {
+        requested = styles[0] === 8 && previewAge >= TOYOTA_MORPH_DURATION + TOYOTA_HOLD_DURATION ? styles[1] : styles[0];
+      } else if (styles[phrase] === 8) {
+        // Keep the original release rhythm, but give the logo only a brief
+        // cameo near the opening peak. Its neighbours use the remaining time.
+        const enter = PHRASES[phrase] * .45 - TOYOTA_MORPH_DURATION;
+        requested = position < enter ? styles[(phrase + styles.length - 1) % styles.length]
+          : position < enter + TOYOTA_MORPH_DURATION + TOYOTA_HOLD_DURATION ? 8 : styles[next];
+      } else {
+        requested = phase >= .76 && styles[next] !== 8 ? styles[next] : styles[phrase];
       }
-      const phase = position / PHRASES[phrase];
-      const next = (phrase + 1) % PHRASES.length;
-      const opening = smoothstep(.25, .45, phase);
-      const recall = 1 - smoothstep(.63, .88, phase);
-      const release = opening * recall * RELEASES[phrase];
-      const quiet = .025 + .012 * Math.sin(clock * .31) ** 2;
+      if (!started && dt > 0) {
+        if (!randomized) selected = styles[phrase] === 8 ? requested : styles[phrase];
+        output.fromStyle = output.toStyle = selected;
+        started = true;
+      }
+      // Morph directly between two selected targets. A new click queues the
+      // latest request until the current morph ends, preserving the visible pose.
+      if (morphAge >= morphDuration && requested !== selected && dt > 0) {
+        output.fromStyle = selected;
+        output.toStyle = requested;
+        morphDuration = morphDurationFor(selected, requested);
+        morphAge = 0;
+      }
+      if (preview && output.toStyle === styles[0] && dt > 0) previewStarted = true;
+      if (morphAge < morphDuration) {
+        morphAge = Math.min(morphDuration, morphAge + dt);
+        output.morph = smootherstep(morphAge / morphDuration);
+        if (morphAge === morphDuration) {
+          selected = output.toStyle;
+          output.fromStyle = output.toStyle = selected;
+          output.morph = 1;
+        }
+      }
+      output.style = mix(output.fromStyle, output.toStyle, output.morph);
+      output.toyota = formWeight(output, 8);
 
-      // Real spectral energy sculpts the release; transients cannot destroy a
-      // held form. Silence also recalls the sculpture while the clock runs.
+      const release = smoothstep(.25, .45, phase) * (1 - smoothstep(.63, .88, phase)) * RELEASES[phrase % RELEASES.length];
+      const quiet = .025 + .012 * Math.sin(clock * .31) ** 2;
       const audible = smoothstep(.012, .11, rms) * enabled;
       const energy = rms * .46 + bass * .24 + mid * .18 + high * .12;
       const drive = .72 + Math.sqrt(energy) * .2 + Math.sqrt(flux * .6 + hit * .4) * .08;
       let targetDispersion = mix(quiet, .022 + release * drive, audible);
-      if (revealing) {
-        const preview = revealAge / REVEAL_DURATION;
-        const opening = smoothstep(0, .32, preview);
-        const recall = 1 - smoothstep(.55, .92, preview);
-        targetDispersion = mix(quiet, mix(revealStart, .8, opening), recall);
+      if (preview) {
+        const age = previewAge / PREVIEW_DURATION;
+        targetDispersion = mix(quiet, mix(previewStart, .8, smoothstep(0, .32, age)), 1 - smoothstep(.66, 1, age));
       }
-      const dispersionBlend = 1 - Math.exp(-dt / (targetDispersion > dispersion ? .38 : .62));
-      dispersion += (targetDispersion - dispersion) * dispersionBlend;
-      // The transport fades active before it reaches zero. A manual preview
-      // may briefly release an idle sculpture, then ease through its recall.
-      const previewRecalling = randomized && dispersion > .12;
-      output.dispersion = clamp(dispersion, revealing || previewRecalling ? 1 : .12 + enabled * .88);
-
-      // Change the escape field during a flowing release, then let the new
-      // shape settle through the recall. Spectral detail adds small variation
-      // without flickering between four entirely different trajectories.
-      const styleTransition = smoothstep(.58, .94, phase);
-      const spectralStyle = ((centroid - .45) * .1 + (flatness - .3) * .08 + (high - bass) * .04) * release * audible;
-      const targetStyle = revealing ? styles[0] : clamp(mix(styles[phrase], styles[next], styleTransition) + spectralStyle, 3);
-      output.style += (targetStyle - output.style) * (1 - Math.exp(-dt / .85));
-      const formTransition = smoothstep(.5, .84, phase);
+      dispersion += (targetDispersion - dispersion) * (1 - Math.exp(-dt / (targetDispersion > dispersion ? .38 : .62)));
+      const manualRecall = randomized && dispersion > .12;
+      output.dispersion = clamp(dispersion, preview || manualRecall ? 1 : .12 + enabled * .88);
+      const formTransition = smoothstep(.5, .9, phase);
       const idleFormation = randomized ? clamp(forms[0] + .035 * Math.sin(clock * .065) ** 2) : .25 + .1 * Math.sin(clock * .065) ** 2;
-      const musicFormation = clamp(mix(forms[phrase], forms[next], formTransition) + (mid - high) * .06 * release * audible);
-      const targetFormation = revealing ? forms[0] : mix(idleFormation, musicFormation, audible);
+      const musicFormation = clamp(mix(forms[phrase % forms.length], forms[next % forms.length], formTransition) + (mid - high) * .06 * release * audible);
+      const targetFormation = preview ? forms[0] : mix(idleFormation, musicFormation, audible);
       output.formation += (targetFormation - output.formation) * (1 - Math.exp(-dt / .9));
-
       return output;
     },
     randomize() {
-      // Pick away from the visible pose, so even repeated clicks produce a
-      // meaningful change. Subsequent music phrases still visit every field.
-      const nextStyle = pick([0, 1, 2, 3].filter((value) => Math.abs(value - output.style) >= .8));
-      const nextForm = pick(FORMS.filter((value) => Math.abs(value - output.formation) >= .45));
-      styles = reorder([0, 1, 2, 3], nextStyle);
+      const nextStyle = pick(FORM_IDS.filter(value => value !== output.fromStyle && value !== output.toStyle));
+      const nextForm = pick(FORMS.filter(value => Math.abs(value - output.formation) >= .45));
+      styles = reorder(FORM_IDS, nextStyle);
       forms = reorder(FORMS, nextForm);
       randomized = true;
-      revealStart = output.dispersion;
-      revealAge = 0;
+      previewStart = output.dispersion;
+      previewAge = 0;
+      previewStarted = false;
     },
     reset() {
-      output.dispersion = dispersion = .025;
-      output.style = 0;
-      output.formation = .25;
-      lastTime = 0;
-      clockOffset = 0;
-      styles = [0, 1, 2, 3];
-      forms = [...FORMS];
-      randomized = false;
-      revealAge = REVEAL_DURATION;
-      revealStart = dispersion;
-    },
+      Object.assign(output, { dispersion: .025, style: 0, formation: .25, fromStyle: 0, toStyle: 0, morph: 1, toyota: 0 });
+      dispersion = .025; lastTime = 0; clockOffset = 0;
+      styles = [...DEFAULT_SEQUENCE]; forms = [...FORMS];
+      randomized = false; started = false; previewAge = PREVIEW_DURATION; previewStart = .025;
+      previewStarted = false;
+      morphAge = morphDuration = MORPH_DURATION; selected = 0;
+    }
   };
 }
